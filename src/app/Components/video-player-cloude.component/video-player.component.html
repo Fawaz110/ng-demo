@@ -1,0 +1,171 @@
+<div #container
+    class="group relative aspect-video w-full overflow-hidden rounded-none bg-black sm:rounded-xl [&:fullscreen]:rounded-none"
+    [class.cursor-none]="!controlsVisible() && playing()" (pointermove)="wakeControls()" (pointerdown)="wakeControls()"
+    (mouseleave)="playing() && controlsVisible.set(false)">
+    <video #video class="h-full w-full object-contain" [src]="currentSrc()" [poster]="poster()" playsinline
+        preload="metadata" (click)="togglePlay()" (dblclick)="toggleFullscreen()" (loadedmetadata)="onLoadedMetadata()"
+        (timeupdate)="currentTime.set(video.currentTime)" (durationchange)="duration.set(video.duration || 0)"
+        (play)="playing.set(true)" (pause)="playing.set(false); controlsVisible.set(true)"
+        (waiting)="buffering.set(true)" (playing)="buffering.set(false)" (canplay)="buffering.set(false)"
+        (volumechange)="volume.set(video.volume); muted.set(video.muted)" (ended)="playing.set(false)"></video>
+
+    <!-- Buffering spinner -->
+    @if (buffering()) {
+    <div class="pointer-events-none absolute inset-0 grid place-items-center">
+        <div class="size-10 animate-spin rounded-full border-4 border-white/25 border-t-white motion-reduce:animate-none sm:size-12"
+            role="status" aria-label="Loading video"></div>
+    </div>
+    }
+
+    <!-- Big play button while paused -->
+    @if (!playing() && !buffering()) {
+    <button type="button"
+        class="absolute left-1/2 top-1/2 grid size-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-neutral-900 shadow-lg transition hover:scale-105 focus-visible:ring-4 focus-visible:ring-sky-400 motion-reduce:transition-none sm:size-16"
+        aria-label="Play" (click)="togglePlay()">
+        <svg class="ml-0.5 size-5 sm:ml-1 sm:size-7" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+        </svg>
+    </button>
+    }
+    <!-- Controls (safe-area padding keeps them clear of notches and home bars) -->
+    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent pt-8 transition-opacity duration-200 motion-reduce:transition-none sm:pt-10
+               pb-[max(0.375rem,env(safe-area-inset-bottom))] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))]
+               sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1rem,env(safe-area-inset-right))]"
+        [class.opacity-0]="!controlsVisible()" [class.pointer-events-none]="!controlsVisible()">
+
+        <!-- Seek row: on small screens the times sit on either side of the bar -->
+        <div class="mb-0.5 flex items-center gap-2 sm:mb-1">
+            <span class="w-10 select-none text-right text-[11px] tabular-nums text-white sm:hidden">
+                {{ format(currentTime()) }}
+            </span>
+            <input type="range" class="h-5 min-w-0 flex-1 cursor-pointer accent-sky-400" min="0" [max]="duration()"
+                step="0.1" [value]="currentTime()" aria-label="Seek"
+                (input)="seek($any($event.target).valueAsNumber)" />
+            <span class="w-10 select-none text-[11px] tabular-nums text-white sm:hidden">
+                {{ format(duration()) }}
+            </span>
+        </div>
+
+        <div class="flex items-center gap-0.5 text-white sm:gap-2">
+            <!-- Play / pause -->
+            <button type="button" class="btn" (click)="togglePlay()" [attr.aria-label]="playing() ? 'Pause' : 'Play'">
+                @if (playing()) {
+                <svg class="size-5 sm:size-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 5h4v14H6zm8 0h4v14h-4z" />
+                </svg>
+                } @else {
+                <svg class="size-5 sm:size-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                </svg>
+                }
+            </button>
+
+            <!-- -10s -->
+            <button type="button" class="btn relative" (click)="skip(-10)" aria-label="Back 10 seconds">
+                <svg class="size-5 sm:size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12a9 9 0 1 0 3-6.7" />
+                    <path d="M3 4v5h5" />
+                </svg>
+                <span class="absolute inset-0 grid place-items-center text-[8px] font-bold sm:text-[9px]">10</span>
+            </button>
+
+            <!-- +10s -->
+            <button type="button" class="btn relative" (click)="skip(10)" aria-label="Forward 10 seconds">
+                <svg class="size-5 sm:size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-3-6.7" />
+                    <path d="M21 4v5h-5" />
+                </svg>
+                <span class="absolute inset-0 grid place-items-center text-[8px] font-bold sm:text-[9px]">10</span>
+            </button>
+
+            <!-- Volume (slider is hover-only, so it is hidden on touch screens; the mute button stays) -->
+            <div class="group/vol flex items-center">
+                <button type="button" class="btn" (click)="toggleMute()"
+                    [attr.aria-label]="muted() ? 'Unmute' : 'Mute'">
+                    @if (muted() || volume() === 0) {
+                    <svg class="size-5 sm:size-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M16.5 12a4.5 4.5 0 0 0-2.5-4v2.2l2.5 2.5V12zM19 12c0 .9-.2 1.8-.5 2.6l1.5 1.5A9 9 0 0 0 21 12a9 9 0 0 0-6-8.5v2.1A7 7 0 0 1 19 12zM3.3 3 2 4.3 6.7 9H3v6h4l5 5v-6.7l4.3 4.3c-.7.5-1.4.9-2.3 1.1v2.1a9 9 0 0 0 3.6-1.8l2 2 1.3-1.3L3.3 3zM12 4 9.9 6.1 12 8.2V4z" />
+                    </svg>
+                    } @else {
+                    <svg class="size-5 sm:size-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z" />
+                    </svg>
+                    }
+                </button>
+                <input type="range"
+                    class="hidden w-0 cursor-pointer accent-sky-400 opacity-0 transition-all duration-200 motion-reduce:transition-none sm:block group-hover/vol:w-20 group-hover/vol:opacity-100 group-focus-within/vol:w-20 group-focus-within/vol:opacity-100 [@media(pointer:coarse)]:!hidden"
+                    min="0" max="1" step="0.05" [value]="muted() ? 0 : volume()" aria-label="Volume"
+                    (input)="setVolume($any($event.target).valueAsNumber)" />
+            </div>
+
+            <!-- Time (desktop / tablet only; mobile shows it beside the seek bar) -->
+            <span class="ml-1 hidden select-none whitespace-nowrap text-sm tabular-nums sm:inline">
+                {{ format(currentTime()) }} / {{ format(duration()) }}
+            </span>
+
+            <span class="min-w-0 flex-1"></span>
+
+            <!-- Speed -->
+            <div class="relative" data-menu>
+                <button type="button" class="btn min-w-9 px-1.5 text-xs font-semibold sm:min-w-12 sm:px-2 sm:text-sm"
+                    aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'speed'" aria-label="Playback speed"
+                    (click)="toggleMenu('speed')">
+                    {{ speed() }}x
+                </button>
+                @if (openMenu() === 'speed') {
+                <ul role="menu" class="menu max-h-40 overflow-y-auto sm:max-h-72">
+                    @for (s of speeds; track s) {
+                    <li role="none">
+                        <button type="button" role="menuitemradio" class="menu-item"
+                            [class.menu-item-active]="s === speed()" [attr.aria-checked]="s === speed()"
+                            (click)="setSpeed(s)">
+                            {{ s === 1 ? 'Normal' : s + 'x' }}
+                        </button>
+                    </li>
+                    }
+                </ul>
+                }
+            </div>
+
+            <!-- Quality -->
+            <div class="relative" data-menu>
+                <button type="button" class="btn min-w-10 px-1.5 text-xs font-semibold sm:min-w-14 sm:px-2 sm:text-sm"
+                    aria-haspopup="menu" [attr.aria-expanded]="openMenu() === 'quality'" aria-label="Video quality"
+                    (click)="toggleMenu('quality')">
+                    {{ selectedQuality() }}
+                </button>
+                @if (openMenu() === 'quality') {
+                <ul role="menu" class="menu max-h-40 overflow-y-auto sm:max-h-72">
+                    @for (q of sources(); track q.label) {
+                    <li role="none">
+                        <button type="button" role="menuitemradio" class="menu-item"
+                            [class.menu-item-active]="q.label === selectedQuality()"
+                            [attr.aria-checked]="q.label === selectedQuality()" (click)="setQuality(q.label)">
+                            {{ q.label }}
+                        </button>
+                    </li>
+                    }
+                </ul>
+                }
+            </div>
+
+            <!-- Fullscreen -->
+            <button type="button" class="btn" (click)="toggleFullscreen()"
+                [attr.aria-label]="isFullscreen() ? 'Exit fullscreen' : 'Fullscreen'">
+                @if (isFullscreen()) {
+                <svg class="size-5 sm:size-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+                </svg>
+                } @else {
+                <svg class="size-5 sm:size-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+                </svg>
+                }
+            </button>
+        </div>
+    </div>
+</div>

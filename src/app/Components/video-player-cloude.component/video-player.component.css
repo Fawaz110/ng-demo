@@ -1,0 +1,17 @@
+@reference "tailwindcss";
+
+.btn {
+    @apply inline-flex h-10 min-w-10 items-center justify-center rounded-md transition hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400;
+}
+
+.menu {
+    @apply absolute bottom-12 right-0 z-10 min-w-28 overflow-hidden rounded-lg bg-neutral-900/95 py-1 shadow-xl ring-1 ring-white/10 backdrop-blur;
+}
+
+.menu-item {
+    @apply block w-full px-4 py-2 text-left text-sm text-white/80 hover:bg-white/10 focus-visible:bg-white/10 focus-visible:outline-none;
+}
+
+.menu-item-active {
+    @apply font-semibold text-sky-400;
+}
