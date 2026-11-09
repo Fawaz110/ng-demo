@@ -1,18 +1,23 @@
-import { Component, signal } from '@angular/core';
-import { VideoSource, VideoPlayerComponent } from './Components/video-player-cloude.component/video-player.component';
-
+import { Component, inject, signal, WritableSignal } from '@angular/core';
+import { Title } from '@angular/platform-browser';
+import { ChatCell } from './Components/chat-cell/chat-cell';
+import { ChatService } from './Service/chat.service';
+import { ChatFooter } from './Components/chat-footer/chat-footer';
 @Component({
-  imports: [VideoPlayerComponent],
+  imports: [
+    ChatCell,
+    ChatFooter
+  ],
   selector: 'app-root',
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
 export class App {
-  protected readonly title = signal('demo');
-  sources: VideoSource[] = [
-    { label: '1080px', src: './video.mp4' },
-    { label: '720px', src: './video.mp4' },
-    { label: '480px', src: './video.mp4' },
-    { label: '360px', src: './video.mp4' },
-  ];
+  protected readonly title = signal('chat demo');
+  _ChatService = inject(ChatService);
+  private _Title = inject(Title);
+  
+  constructor() {
+    this._Title.setTitle(this.title())
+  }
 }
